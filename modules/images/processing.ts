@@ -59,13 +59,26 @@ export async function processNextImage({ DB, ASSETS }: ImageBindings, render: Re
   } catch (error) {
     // Never send decoder errors or object keys to a browser.
     console.error("image_processing_failed", { imageId: job.image_id, error });
-    await DB.batch([
+    const failed = await DB.batch([
       DB.prepare(`UPDATE images SET status='ERROR',updated_at=? WHERE id=? AND status='PROCESSING' AND ${claim}`)
         .bind(new Date().toISOString(), job.image_id, job.id, job.attempts),
       DB.prepare("UPDATE image_processing_jobs SET status='FAILED',error_code='PROCESSING_FAILED',completed_at=? WHERE id=? AND status='RUNNING' AND attempts=?")
         .bind(new Date().toISOString(), job.id, job.attempts),
     ]);
-    await Promise.allSettled(keys.map(key => ASSETS.delete(key)));
+    if (failed[1].meta.changes !== 1) {
+      // The commit may have succeeded before its acknowledgement was lost.
+      const persisted = await DB.prepare("SELECT status,attempts FROM image_processing_jobs WHERE id=?")
+        .bind(job.id).first<{ status: string; attempts: number }>();
+      if (persisted?.status === "SUCCEEDED" && persisted.attempts === job.attempts) {
+        return { imageId: job.image_id, status: "READY" as const };
+      }
+      // If ownership or the outcome is unknown, preserve objects for reconciliation.
+      throw new Error("PROCESSING_OUTCOME_UNCONFIRMED", { cause: error });
+    }
+    await Promise.allSettled(keys.map(async key => {
+      const referenced = await DB.prepare("SELECT id FROM image_assets WHERE object_key=? LIMIT 1").bind(key).first();
+      if (!referenced) await ASSETS.delete(key);
+    }));
     return { imageId: job.image_id, status: "ERROR" as const };
   }
 }

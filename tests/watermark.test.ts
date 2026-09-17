@@ -28,3 +28,11 @@ test("every position renders protected WebP without EXIF and preserves original 
 test("reject malformed image payload", async () => {
   await assert.rejects(renderProtectedPreviews(new Uint8Array([1,2,3]),settings));
 });
+
+test("invisible Unicode cannot create an unmarked preview", async () => {
+  for (const text of ["\u200b", "\u2060\u200d", "\u3164", "\u2800", "©", " \ufe0f "]) {
+    assert.equal(watermarkInput.safeParse({watermarkMode:"CUSTOM",watermarkText:text}).success,false,JSON.stringify(text));
+  }
+  assert.equal(watermarkInput.parse({watermarkMode:"CUSTOM",watermarkText:"Studio\u200b Paris"}).watermarkText,"Studio Paris");
+  assert.throws(()=>watermarkSvg(800,700,{...settings,watermarkMode:"PLATFORM"},"\u200b"),/INVISIBLE_WATERMARK/);
+});

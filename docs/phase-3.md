@@ -50,3 +50,9 @@ Validation locale réalisée le 17 septembre 2026 sur macOS, Node 26.5.0 et pnpm
 Le test HTTP conserve une photographie synthétique dans le studio pour inspection. Les tests unitaires et D1/R2 utilisent un stockage éphémère séparé.
 
 Voir [le guide local](local-development.md).
+
+## Corrections après revue
+
+IMPLEMENTED et vérifié : refus des filigranes sans lettre ou chiffre visible, normalisation Unicode, et réconciliation après perte d’accusé de réception D1. Un job déjà validé conserve ses objets R2. Si le résultat reste inconnu, le moteur conserve les objets pour réconciliation ultérieure.
+
+Validation : six tests réussis, lint sans erreur, build et vérification TypeScript réussis.

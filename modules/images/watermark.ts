@@ -1,14 +1,19 @@
 import { z } from "zod";
 
+export function normalizeWatermarkText(text: string) {
+  return text.normalize("NFKC").replace(/\p{Default_Ignorable_Code_Point}/gu, "").trim();
+}
+function hasVisibleText(text: string) { return /[\p{L}\p{N}]/u.test(normalizeWatermarkText(text)); }
+
 export const watermarkInput = z.object({
   watermarkMode: z.enum(["PLATFORM", "CUSTOM"]),
-  watermarkText: z.string().trim().max(80).default(""),
+  watermarkText: z.string().transform(normalizeWatermarkText).pipe(z.string().max(80)).default(""),
   opacityPercent: z.coerce.number().int().min(15).max(80).default(28),
   sizePercent: z.coerce.number().int().min(15).max(60).default(22),
   position: z.enum(["CENTER", "TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT", "REPEATED"]).default("CENTER"),
 }).superRefine((value, ctx) => {
-  if (value.watermarkMode === "CUSTOM" && !value.watermarkText) {
-    ctx.addIssue({ code: "custom", path: ["watermarkText"], message: "Saisissez le texte du filigrane personnalisé." });
+  if (value.watermarkMode === "CUSTOM" && !hasVisibleText(value.watermarkText)) {
+    ctx.addIssue({ code: "custom", path: ["watermarkText"], message: "Le filigrane doit contenir au moins une lettre ou un chiffre visible." });
   }
 });
 export type WatermarkInput = z.infer<typeof watermarkInput>;
@@ -19,7 +24,8 @@ function escapeXml(text: string) {
 
 export function watermarkSvg(width: number, height: number, input: WatermarkInput, platformName: string) {
   const settings = watermarkInput.parse(input);
-  const rawText = settings.watermarkMode === "CUSTOM" ? settings.watermarkText : platformName;
+  const rawText = normalizeWatermarkText(settings.watermarkMode === "CUSTOM" ? settings.watermarkText : platformName);
+  if (!hasVisibleText(rawText)) throw new Error("INVISIBLE_WATERMARK");
   const text = escapeXml(rawText);
   const labelWidth = Math.round(width * settings.sizePercent / 100);
   const fontSize = Math.max(10, Math.min(height / 8, labelWidth / Math.max(4, [...rawText].length) * 1.5));
