@@ -14,6 +14,8 @@ Nom provisoire et configurable pour une marketplace française permettant aux ph
 - import authentifié et stockage privé des originaux ;
 - validation de signature, format, taille, dimensions et propriété ;
 - suivi des images et file persistante de traitements ;
+- édition protégée des métadonnées, du copyright et du filigrane ;
+- règles de transition et garde-fous serveur avant publication ;
 - authentification déléguée au fournisseur sécurisé de la plateforme ;
 - schéma relationnel initial et migration ;
 - RBAC serveur et règles métier centralisées ;
@@ -27,7 +29,7 @@ Nom provisoire et configurable pour une marketplace française permettant aux ph
 
 ### Non implémenté
 
-- upload et traitement d’images ;
+- génération effective des variantes d’image et consommation des jobs ;
 - panier persistant et paiements Stripe ;
 - webhooks, reversements et remboursements ;
 - téléchargement d’originaux, factures et administration.
