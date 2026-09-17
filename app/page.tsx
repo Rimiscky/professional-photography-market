@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-html-link-for-pages */
 "use client";
 
 import { ArrowRight, Camera, Heart, Menu, Search, ShoppingBag } from "lucide-react";

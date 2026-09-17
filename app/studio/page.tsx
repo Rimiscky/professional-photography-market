@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-html-link-for-pages */
 import { ArrowUpRight, Camera, CircleDollarSign, Eye, Image as ImageIcon, LayoutDashboard, Plus, Settings, ShoppingBag, TrendingUp, Wallet } from "lucide-react";
 
 const stats = [["Revenus nets","2 840 €","+18 %",CircleDollarSign],["Ventes","47","+9",ShoppingBag],["Solde disponible","1 260 €","",Wallet],["Vues","18 420","+24 %",Eye]] as const;

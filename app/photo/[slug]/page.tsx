@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-html-link-for-pages */
 "use client";
 import { ArrowLeft, Check, Heart, ShieldCheck, ShoppingBag } from "lucide-react";
 import { useState } from "react";

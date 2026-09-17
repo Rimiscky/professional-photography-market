@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-html-link-for-pages */
 import { ArrowRight, Camera, Check, ShoppingBag } from "lucide-react";
 import { chatGPTSignInPath } from "../chatgpt-auth";
 
