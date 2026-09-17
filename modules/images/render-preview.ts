@@ -3,9 +3,12 @@ import sharp from "sharp";
 import { watermarkSvg, type WatermarkInput } from "./watermark";
 import { businessRules, branding } from "../../lib/config";
 
+sharp.concurrency(1);
+sharp.cache({ memory: 32, files: 0, items: 32 });
+
 export async function renderProtectedPreviews(original: Uint8Array, watermark: WatermarkInput) {
   if (!original.length || original.length > businessRules.maximumUploadBytes) throw new Error("INVALID_ORIGINAL_SIZE");
-  const options = { limitInputPixels: 180_000_000, failOn: "warning" as const };
+  const options = { limitInputPixels: businessRules.maximumInputPixels, failOn: "warning" as const };
   const metadata = await sharp(original, options).metadata();
   if (!metadata.format || !["jpeg", "png", "webp"].includes(metadata.format) || (metadata.pages ?? 1) !== 1) throw new Error("UNSUPPORTED_ORIGINAL");
   const results = [];

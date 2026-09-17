@@ -6,7 +6,7 @@ export const branding = {
 
 export const businessRules = {
   currency: "EUR", commissionBasisPoints: 1500, minimumPriceMinor: 500,
-  maximumUploadBytes: 15 * 1024 * 1024, signedDownloadTtlSeconds: 300,
+  maximumUploadBytes: 15 * 1024 * 1024, maximumInputPixels: 60_000_000, signedDownloadTtlSeconds: 300,
   allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
 } as const;
 

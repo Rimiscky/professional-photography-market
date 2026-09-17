@@ -10,7 +10,7 @@ export function validateImageFile(bytes: Uint8Array, declaredType: string): Vali
   if (!detected || detected.mimeType !== declaredType) throw new Error("INVALID_FILE_SIGNATURE");
   if (!businessRules.allowedMimeTypes.includes(detected.mimeType)) throw new Error("UNSUPPORTED_FORMAT");
   if (detected.width < 640 || detected.height < 640) throw new Error("DIMENSIONS_TOO_SMALL");
-  if (detected.width > 30_000 || detected.height > 30_000 || detected.width * detected.height > 180_000_000) throw new Error("DIMENSIONS_TOO_LARGE");
+  if (detected.width > 30_000 || detected.height > 30_000 || detected.width * detected.height > businessRules.maximumInputPixels) throw new Error("DIMENSIONS_TOO_LARGE");
   return detected;
 }
 

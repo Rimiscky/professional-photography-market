@@ -15,7 +15,7 @@ export async function saveOwnedMetadata(DB: D1Database, id: string, userId: stri
       opacity_percent=excluded.opacity_percent,size_percent=excluded.size_percent,position=excluded.position,updated_at=excluded.updated_at`)
       .bind(id, data.watermarkMode, data.watermarkText, data.opacityPercent, data.sizePercent, data.position, now),
     DB.prepare(`INSERT INTO image_processing_jobs (id,image_id,status) SELECT ?,?,'PENDING' WHERE changes()=1
-      ON CONFLICT(image_id) DO UPDATE SET status='PENDING',available_at=CURRENT_TIMESTAMP,error_code=NULL,started_at=NULL,completed_at=NULL`)
+      ON CONFLICT(image_id) DO UPDATE SET status='PENDING',available_at=CURRENT_TIMESTAMP,error_code=NULL,started_at=NULL,completed_at=NULL,lease_expires_at=NULL,consecutive_failures=0`)
       .bind(crypto.randomUUID(), id),
     DB.prepare("DELETE FROM image_assets WHERE image_id=? AND kind!='ORIGINAL' AND changes()=1").bind(id),
   ]);
@@ -44,7 +44,7 @@ export async function retryOwnedImage(DB: D1Database, id: string, userId: string
   const result = await DB.batch([
     DB.prepare(`UPDATE images SET status='PROCESSING',updated_at=? WHERE id=? AND status='ERROR'
       AND photographer_id IN (SELECT id FROM photographer_profiles WHERE user_id=?)
-      AND EXISTS(SELECT 1 FROM image_processing_jobs WHERE image_id=? AND status='FAILED' AND attempts<3)`)
+      AND EXISTS(SELECT 1 FROM image_processing_jobs WHERE image_id=? AND status='FAILED' AND consecutive_failures<3)`)
       .bind(new Date().toISOString(), id, userId, id),
     DB.prepare(`UPDATE image_processing_jobs SET status='PENDING',available_at=CURRENT_TIMESTAMP,error_code=NULL
       WHERE image_id=? AND changes()=1`).bind(id),

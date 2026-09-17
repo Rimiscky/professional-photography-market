@@ -1,16 +1,20 @@
+import { recoverExpiredJobs } from "./processing-maintenance";
 import { watermarkInput, type WatermarkInput } from "./watermark";
 
-type Preview = { kind: "THUMBNAIL" | "SMALL" | "MEDIUM" | "WATERMARKED"; data: Uint8Array; width: number; height: number };
-type Renderer = (bytes: Uint8Array, settings: WatermarkInput) => Promise<Preview[]>;
+export type Preview = { kind: "THUMBNAIL" | "SMALL" | "MEDIUM" | "WATERMARKED"; data: Uint8Array; width: number; height: number };
+export type Renderer = (bytes: Uint8Array, settings: WatermarkInput) => Promise<Preview[]>;
 export type ImageBindings = { DB: D1Database; ASSETS: R2Bucket };
 
-export async function processNextImage({ DB, ASSETS }: ImageBindings, render: Renderer) {
+export async function processNextImage({ DB, ASSETS }: ImageBindings, render: Renderer, options: { now?: () => number; leaseMs?: number } = {}) {
+  const now = options.now ?? Date.now;
+  const leaseMs = options.leaseMs ?? 300_000;
+  await recoverExpiredJobs(DB, now());
   // A single conditional write claims the job, including across concurrent processors.
   const job = await DB.prepare(`UPDATE image_processing_jobs SET status='RUNNING', attempts=attempts+1,
-    started_at=?, completed_at=NULL, error_code=NULL WHERE id=(SELECT j.id FROM image_processing_jobs j
+    started_at=?,lease_expires_at=?, completed_at=NULL, error_code=NULL WHERE id=(SELECT j.id FROM image_processing_jobs j
     JOIN images i ON i.id=j.image_id WHERE j.status='PENDING' AND j.available_at<=CURRENT_TIMESTAMP
     AND i.status='PROCESSING' ORDER BY j.created_at LIMIT 1) AND status='PENDING'
-    RETURNING id, image_id, attempts`).bind(new Date().toISOString()).first<{ id: string; image_id: string; attempts: number }>();
+    RETURNING id, image_id, attempts`).bind(new Date(now()).toISOString(), now() + leaseMs).first<{ id: string; image_id: string; attempts: number }>();
   if (!job) return null;
   const keys: string[] = [];
   const claim = `EXISTS(SELECT 1 FROM image_processing_jobs WHERE id=? AND status='RUNNING' AND attempts=?)`;
@@ -51,7 +55,7 @@ export async function processNextImage({ DB, ASSETS }: ImageBindings, render: Re
       AND ${claim} AND (SELECT count(*) FROM image_assets WHERE image_id=? AND kind IN
       ('THUMBNAIL','SMALL','MEDIUM','WATERMARKED') AND mime_type='image/webp' AND is_private=1)=4`)
       .bind(new Date().toISOString(), job.image_id, job.id, job.attempts, job.image_id));
-    statements.push(DB.prepare(`UPDATE image_processing_jobs SET status='SUCCEEDED',completed_at=?
+    statements.push(DB.prepare(`UPDATE image_processing_jobs SET status='SUCCEEDED',lease_expires_at=NULL,consecutive_failures=0,completed_at=?
       WHERE id=? AND status='RUNNING' AND attempts=? AND changes()=1`).bind(new Date().toISOString(), job.id, job.attempts));
     const result = await DB.batch(statements);
     if (result.at(-1)?.meta.changes !== 1) throw new Error("STALE_PROCESSING_JOB");
@@ -62,7 +66,7 @@ export async function processNextImage({ DB, ASSETS }: ImageBindings, render: Re
     const failed = await DB.batch([
       DB.prepare(`UPDATE images SET status='ERROR',updated_at=? WHERE id=? AND status='PROCESSING' AND ${claim}`)
         .bind(new Date().toISOString(), job.image_id, job.id, job.attempts),
-      DB.prepare("UPDATE image_processing_jobs SET status='FAILED',error_code='PROCESSING_FAILED',completed_at=? WHERE id=? AND status='RUNNING' AND attempts=?")
+      DB.prepare("UPDATE image_processing_jobs SET status='FAILED',lease_expires_at=NULL,consecutive_failures=consecutive_failures+1,error_code='PROCESSING_FAILED',completed_at=? WHERE id=? AND status='RUNNING' AND attempts=?")
         .bind(new Date().toISOString(), job.id, job.attempts),
     ]);
     if (failed[1].meta.changes !== 1) {
@@ -72,13 +76,19 @@ export async function processNextImage({ DB, ASSETS }: ImageBindings, render: Re
       if (persisted?.status === "SUCCEEDED" && persisted.attempts === job.attempts) {
         return { imageId: job.image_id, status: "READY" as const };
       }
-      // If ownership or the outcome is unknown, preserve objects for reconciliation.
-      throw new Error("PROCESSING_OUTCOME_UNCONFIRMED", { cause: error });
+      if (!persisted) throw new Error("PROCESSING_OUTCOME_UNCONFIRMED", { cause: error });
+      // Recovery fenced this attempt. Its unique keys cannot be used by the successor.
+      await discardUnreferencedKeys(DB, ASSETS, keys);
+      return { imageId: job.image_id, status: "SUPERSEDED" as const };
     }
-    await Promise.allSettled(keys.map(async key => {
-      const referenced = await DB.prepare("SELECT id FROM image_assets WHERE object_key=? LIMIT 1").bind(key).first();
-      if (!referenced) await ASSETS.delete(key);
-    }));
+    await discardUnreferencedKeys(DB, ASSETS, keys);
     return { imageId: job.image_id, status: "ERROR" as const };
   }
+}
+
+async function discardUnreferencedKeys(DB: D1Database, ASSETS: R2Bucket, keys: string[]) {
+  await Promise.allSettled(keys.map(async key => {
+    const referenced = await DB.prepare("SELECT id FROM image_assets WHERE object_key=? LIMIT 1").bind(key).first();
+    if (!referenced) await ASSETS.delete(key);
+  }));
 }

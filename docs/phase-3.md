@@ -12,7 +12,7 @@ Validation locale réalisée le 17 septembre 2026 sur macOS, Node 26.5.0 et pnpm
 - Prise atomique d’un job `PENDING` par un seul consommateur. Les métadonnées ne peuvent pas changer pendant `RUNNING`.
 - Passage `PROCESSING -> READY` après écriture et vérification de taille des quatre objets, puis enregistrement transactionnel des actifs et du succès du job.
 - En cas d’erreur de décodage ou de stockage : `ERROR/FAILED`, suppression tentée des objets de la tentative, aucun passage à `READY`. Diagnostic interne non retourné au navigateur.
-- Réessai propriétaire d’un job échoué, limité à trois tentatives cumulées via l’action `retry`. Un nouvel enregistrement des métadonnées crée une nouvelle demande de traitement.
+- Réessai propriétaire d’un job échoué, limité à trois échecs consécutifs via l’action `retry`. Un nouvel enregistrement des métadonnées crée une nouvelle demande de traitement.
 - Enregistrement des métadonnées et du filigrane : invalidation immédiate des anciens actifs en base, retour à `PROCESSING` et remise en file atomiques. Même une modification de titre déclenche actuellement une régénération.
 - Publication conditionnelle et atomique : propriétaire, état autorisé, métadonnées obligatoires, confirmation des droits, original privé, job réussi et actif `WATERMARKED` WebP requis. Un actif `LARGE` seul ne suffit pas. Journal d’audit créé uniquement si la publication réussit.
 - `GET /api/images/{id}/preview` sélectionne uniquement le dérivé protégé. Aperçu réservé au propriétaire avant publication, accessible sans session après publication. Aucun paramètre de clé objet n’est accepté. Réponse `image/webp`, `nosniff`, `private, no-store`.
@@ -29,8 +29,8 @@ Validation locale réalisée le 17 septembre 2026 sur macOS, Node 26.5.0 et pnpm
 ## TODO
 
 - Déployer un consommateur Node avec adaptateurs D1/R2 distants et planification, puis vérifier le parcours sur l’hébergement réel.
-- Ajouter un bail de traitement et la reprise des jobs `RUNNING` après arrêt brutal. Actuellement ils restent bloqués et doivent être examinés par un opérateur après arrêt du consommateur concerné.
-- Nettoyer les anciens objets dérivés devenus orphelins après régénération et les suppressions R2 échouées. Ces objets restent privés et ne sont plus sélectionnés par la route d’aperçu.
+- Mesurer les performances et dimensionner les processus pour la charge de production.
+- Superviser les erreurs de maintenance et les limites de stockage sur l’infrastructure distante.
 - Compléter les formats WebP d’import, les quotas, la limitation de débit et le contrôle des ressources du moteur pour une exploitation multi-utilisateur.
 - Alimenter le catalogue public depuis les images publiées et tester les parcours navigateur desktop/mobile de manière automatisée.
 
@@ -44,7 +44,7 @@ Validation locale réalisée le 17 septembre 2026 sur macOS, Node 26.5.0 et pnpm
 - `pnpm lint` : succès, zéro erreur, six avertissements préexistants concernant les balises `img` hors du module images.
 - `pnpm build` : succès Vinext/Vite.
 - `pnpm exec tsc --noEmit --incremental false` : succès.
-- `pnpm test` : quatre tests regroupant les scénarios de rendu, formats invalides, échappement XML, positions, retrait EXIF, conservation de l’original, concurrence, isolation propriétaire, verrouillage, publication, régénération, échec du décodeur, échec de stockage et reprise.
+- `pnpm test` : dix tests regroupant les scénarios de rendu, formats invalides, échappement XML, positions, retrait EXIF, conservation de l’original, concurrence, isolation propriétaire, verrouillage, publication, régénération, échec du décodeur, échec de stockage et reprise.
 - `pnpm test:import` : parcours HTTP réel sur localhost, création du profil si absent, import JPEG synthétique, refus sans session, publication prématurée refusée, configuration du filigrane, traitement via le script Node, aperçu WebP sans EXIF, original vérifié par SHA-256, accès direct à l’original refusé, publication et aperçu public.
 
 Le test HTTP conserve une photographie synthétique dans le studio pour inspection. Les tests unitaires et D1/R2 utilisent un stockage éphémère séparé.
@@ -56,3 +56,13 @@ Voir [le guide local](local-development.md).
 IMPLEMENTED et vérifié : refus des filigranes sans lettre ou chiffre visible, normalisation Unicode, et réconciliation après perte d’accusé de réception D1. Un job déjà validé conserve ses objets R2. Si le résultat reste inconnu, le moteur conserve les objets pour réconciliation ultérieure.
 
 Validation : six tests réussis, lint sans erreur, build et vérification TypeScript réussis.
+
+## Fiabilité du moteur
+
+IMPLEMENTED et testé localement : réservation de cinq minutes, récupération des réservations expirées à chaque lancement, protection contre un ancien consommateur qui termine après son remplaçant, arrêt des reprises automatiques après trois expirations consécutives. Le compteur des tentatives reste monotone pour garantir des clés objets distinctes ; les échecs consécutifs sont réinitialisés après succès ou nouvel enregistrement.
+
+La commande `pnpm images:process` nettoie les objets dérivés non référencés de plus de quinze minutes. Les originaux, objets récents, actifs référencés et objets associés à un traitement en cours sont préservés. Une erreur de nettoyage reste visible et pourra être retentée au prochain lancement.
+
+Le rendu est isolé dans un sous-processus arrêté après 120 secondes. Les images sont limitées à 60 millions de pixels, le cache Sharp à 32 Mo et le tas JavaScript à 256 Mo, avec un seul thread libvips et des jobs traités séquentiellement par consommateur. Ces réglages ne constituent pas un plafond global de mémoire native pour la machine.
+
+Migration requise : `0003_tan_onslaught.sql`, appliquée par `pnpm db:migrate:local`. Validation : dix tests réussis, lint, build et TypeScript réussis.

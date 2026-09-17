@@ -22,6 +22,13 @@
       "when": 1789606954532,
       "tag": "0002_friendly_titanium_man",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789653782214,
+      "tag": "0003_tan_onslaught",
+      "breakpoints": true
     }
   ]
 }

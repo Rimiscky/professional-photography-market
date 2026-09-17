@@ -1,3 +1,4 @@
+import { businessRules } from "../../../../lib/config";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { getChatGPTUser } from "../../../chatgpt-auth";
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
     if (title.length < 2 || title.length > 120) return Response.json({ error: "Le titre doit contenir entre 2 et 120 caractères." }, { status: 400 });
     if (!rightsConfirmed) return Response.json({ error: "Vous devez confirmer que vous détenez les droits nécessaires." }, { status: 400 });
 
+    if (file.size > businessRules.maximumUploadBytes) throw new Error("FILE_TOO_LARGE");
     const bytes = new Uint8Array(await file.arrayBuffer());
     const validated = validateImageFile(bytes, file.type);
     const suppliedExtension = file.name.split(".").pop()?.toLowerCase();

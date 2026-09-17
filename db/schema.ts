@@ -81,6 +81,8 @@ export const imageProcessingJobs = sqliteTable("image_processing_jobs", {
   status: text("status", { enum: ["PENDING", "RUNNING", "SUCCEEDED", "FAILED"] }).notNull().default("PENDING"),
   attempts: integer("attempts").notNull().default(0),
   errorCode: text("error_code"),
+  leaseExpiresAt: integer("lease_expires_at"),
+  consecutiveFailures: integer("consecutive_failures").notNull().default(0),
   availableAt: text("available_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   startedAt: text("started_at"),
   completedAt: text("completed_at"),
