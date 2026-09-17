@@ -75,6 +75,18 @@ export const imageAssets = sqliteTable("image_assets", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => [uniqueIndex("image_asset_kind_unique").on(t.imageId, t.kind)]);
 
+export const imageProcessingJobs = sqliteTable("image_processing_jobs", {
+  id: text("id").primaryKey(),
+  imageId: text("image_id").notNull().references(() => images.id, { onDelete: "cascade" }),
+  status: text("status", { enum: ["PENDING", "RUNNING", "SUCCEEDED", "FAILED"] }).notNull().default("PENDING"),
+  attempts: integer("attempts").notNull().default(0),
+  errorCode: text("error_code"),
+  availableAt: text("available_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  startedAt: text("started_at"),
+  completedAt: text("completed_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => [index("processing_jobs_status_idx").on(t.status, t.availableAt), uniqueIndex("processing_jobs_image_unique").on(t.imageId)]);
+
 export const licenseTemplates = sqliteTable("license_templates", {
   id: text("id").primaryKey(), code: text("code").notNull(), name: text("name").notNull(),
   active: integer("active", { mode: "boolean" }).notNull().default(true), ...timestamps,
