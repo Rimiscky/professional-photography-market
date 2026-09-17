@@ -71,3 +71,7 @@ Migration requise : `0003_tan_onslaught.sql`, appliquée par `pnpm db:migrate:lo
 IMPLEMENTED : imports VP8 avec pertes, VP8L sans pertes et VP8X étendus. Treize tests réussis couvrent aussi les fichiers tronqués, tailles de blocs invalides, dimensions incohérentes, mauvais MIME et animations refusées. Les trois variantes réelles sont produites par Sharp puis décodées et transformées par le pipeline. Lint, build et TypeScript réussis.
 
 Référence du format : [spécification du conteneur WebP](https://developers.google.com/speed/webp/docs/riff_container).
+
+## Dépublication
+
+IMPLEMENTED : action propriétaire `unpublish`, transition atomique vers `UNPUBLISHED` et journal d’audit. L’aperçu public devient inaccessible immédiatement ; le propriétaire conserve son aperçu et peut enregistrer de nouvelles métadonnées, ce qui déclenche une régénération. Les tests vérifient le refus pour un autre compte et pour une image déjà dépubliée.

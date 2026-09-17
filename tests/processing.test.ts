@@ -5,7 +5,7 @@ import { getPlatformProxy } from "wrangler";
 import sharp from "sharp";
 import { processNextImage, type ImageBindings } from "../modules/images/processing";
 import { renderProtectedPreviews } from "../modules/images/render-preview";
-import { publishOwnedImage, retryOwnedImage, saveOwnedMetadata } from "../modules/images/manage";
+import { publishOwnedImage, retryOwnedImage, saveOwnedMetadata, unpublishOwnedImage } from "../modules/images/manage";
 import { imageMetadataInput } from "../modules/images/metadata-schema";
 
 import { protectedPreview } from "../modules/images/preview";
@@ -61,7 +61,11 @@ test("D1/R2 pipeline: claims, privacy, metadata locks, publication, regeneration
     assert.equal(await publishOwnedImage(DB,"i","owner"),false);
     assert.equal((await DB.prepare("SELECT count(*) AS n FROM audit_logs").first<{n:number}>())?.n,1);
     assert.equal(await saveOwnedMetadata(DB,"i","owner",metadata),false);
-    await DB.prepare("UPDATE images SET status='UNPUBLISHED' WHERE id='i'").run();
+    assert.equal(await unpublishOwnedImage(DB,"i","other"),false);
+    assert.equal(await unpublishOwnedImage(DB,"i","owner"),true);
+    assert.equal(await unpublishOwnedImage(DB,"i","owner"),false);
+    assert.equal((await protectedPreview(proxy.env,"i",null)).status,404);
+    assert.equal((await protectedPreview(proxy.env,"i","owner")).status,200);
     assert.equal(await saveOwnedMetadata(DB,"i","owner",{...metadata,watermarkText:"Nouveau"}),true);
     assert.equal((await DB.prepare("SELECT count(*) AS n FROM image_assets WHERE kind!='ORIGINAL'").first<{n:number}>())?.n,0);
     assert.equal(await publishOwnedImage(DB,"i","owner"),false);

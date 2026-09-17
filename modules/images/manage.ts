@@ -51,3 +51,14 @@ export async function retryOwnedImage(DB: D1Database, id: string, userId: string
   ]);
   return result[0].meta.changes === 1;
 }
+
+export async function unpublishOwnedImage(DB:D1Database,id:string,userId:string){
+  const result=await DB.batch([
+    DB.prepare(`UPDATE images SET status='UNPUBLISHED',updated_at=? WHERE id=? AND status='PUBLISHED'
+      AND photographer_id IN (SELECT id FROM photographer_profiles WHERE user_id=?)`)
+      .bind(new Date().toISOString(),id,userId),
+    DB.prepare(`INSERT INTO audit_logs(id,actor_user_id,action,target_type,target_id)
+      SELECT ?,?,'image.unpublished','image',? WHERE changes()=1`).bind(crypto.randomUUID(),userId,id),
+  ]);
+  return result[0].meta.changes===1;
+}
