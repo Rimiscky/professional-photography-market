@@ -87,6 +87,17 @@ export const imageProcessingJobs = sqliteTable("image_processing_jobs", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => [index("processing_jobs_status_idx").on(t.status, t.availableAt), uniqueIndex("processing_jobs_image_unique").on(t.imageId)]);
 
+export const watermarkSettings = sqliteTable("watermark_settings", {
+  imageId: text("image_id").primaryKey().references(() => images.id, { onDelete: "cascade" }),
+  mode: text("mode", { enum: ["NONE", "PLATFORM", "CUSTOM"] }).notNull().default("PLATFORM"),
+  text: text("text"),
+  customAssetKey: text("custom_asset_key"),
+  opacityPercent: integer("opacity_percent").notNull().default(28),
+  sizePercent: integer("size_percent").notNull().default(22),
+  position: text("position", { enum: ["CENTER", "TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT", "REPEATED"] }).notNull().default("CENTER"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const licenseTemplates = sqliteTable("license_templates", {
   id: text("id").primaryKey(), code: text("code").notNull(), name: text("name").notNull(),
   active: integer("active", { mode: "boolean" }).notNull().default(true), ...timestamps,

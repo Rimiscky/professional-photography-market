@@ -15,6 +15,13 @@
       "when": 1789606167705,
       "tag": "0001_stiff_the_professor",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789606954532,
+      "tag": "0002_friendly_titanium_man",
+      "breakpoints": true
     }
   ]
 }
