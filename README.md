@@ -10,6 +10,7 @@ Nom provisoire et configurable pour une marketplace française permettant aux ph
 - sélection visuelle d’une licence ;
 - tableau de bord studio de démonstration ;
 - inscription et onboarding photographe en cinq étapes ;
+- vitrine publique et édition persistante du profil photographe ;
 - authentification déléguée au fournisseur sécurisé de la plateforme ;
 - schéma relationnel initial et migration ;
 - RBAC serveur et règles métier centralisées ;
@@ -61,4 +62,4 @@ pnpm lint
 
 Les textes de licence, taxes, factures et pages légales devront être validés avant une mise en production commerciale. Ne jamais commiter de secret, document légal privé, pièce d’identité ou photographie originale.
 
-Voir [`docs/phase-0.md`](docs/phase-0.md) et [`docs/phase-1.md`](docs/phase-1.md).
+Voir [`docs/phase-0.md`](docs/phase-0.md), [`docs/phase-1.md`](docs/phase-1.md) et [`docs/phase-2.md`](docs/phase-2.md).
