@@ -1,4 +1,4 @@
-# Objectif — Marketplace de photographies professionnelles
+# Objectif : Marketplace de photographies professionnelles
 
 Nom provisoire et configurable pour une marketplace française permettant aux photographes de publier et licencier leurs images, et aux clients d’acheter puis télécharger les originaux de façon autorisée.
 
@@ -29,7 +29,7 @@ Nom provisoire et configurable pour une marketplace française permettant aux ph
 
 ### Non implémenté
 
-- génération effective des variantes d’image et consommation des jobs ;
+- consommation automatique des jobs sur l’hébergement de production ;
 - panier persistant et paiements Stripe ;
 - webhooks, reversements et remboursements ;
 - téléchargement d’originaux, factures et administration.
@@ -45,15 +45,32 @@ Les contrôles de rôle, de propriété et de montant sont réalisés côté ser
 ```bash
 pnpm install
 cp .env.example .env
-pnpm db:generate
+pnpm db:migrate:local
 pnpm dev
 ```
+
+Le moteur local se lance dans un second terminal avec `pnpm images:process`. Guide complet : [Tester en local](docs/local-development.md).
+
+## Phase 3 : état vérifié localement
+
+| État | Périmètre |
+| --- | --- |
+| IMPLEMENTED | Filigrane textuel personnalisé, quatre aperçus WebP protégés, original privé, traitement D1/R2 local, transitions et publication atomiques, affichage des aperçus |
+| IMPLEMENTED | Test HTTP d’import complet local, SHA-256 de l’original, contrôle d’accès et retrait EXIF |
+| PARTIAL | Moteur lancé manuellement ; catalogue public de démonstration ; confidentialité de l’infrastructure distante non vérifiée |
+| TODO | Consommateur de production, planification, reprise après arrêt brutal, nettoyage des dérivés orphelins, formats WebP VP8/VP8L d’import |
+| FUTURE | Logo graphique, TIFF, paiements et livraison autorisée des originaux |
+
+Ces résultats ne constituent pas une validation du déploiement de production. Détails et limites : [Phase 3](docs/phase-3.md).
 
 ## Vérifications
 
 ```bash
 pnpm build
 pnpm lint
+pnpm test
+# Serveur local démarré :
+pnpm test:import
 ```
 
 ## Structure
