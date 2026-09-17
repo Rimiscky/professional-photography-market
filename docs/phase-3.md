@@ -5,7 +5,7 @@ Validation locale réalisée le 17 septembre 2026 sur macOS, Node 26.5.0 et pnpm
 ## IMPLEMENTED : vérifié localement
 
 - Import HTTP authentifié, profil propriétaire résolu côté serveur et confirmation des droits.
-- Validation du MIME, de l’extension, de la signature, du poids et des dimensions avant stockage. JPEG, PNG et WebP VP8X sont reconnus par le validateur actuel.
+- Validation du MIME, de l’extension, de la signature, du poids et des dimensions avant stockage. JPEG, PNG et WebP VP8, VP8L et VP8X statiques sont reconnus. Les tailles RIFF, les limites des blocs et la cohérence des dimensions sont vérifiées.
 - Original conservé dans R2 avec `is_private=1`, clé générée côté serveur, sans route de téléchargement public. Le test HTTP compare son SHA-256 avant et après traitement.
 - Filigrane plateforme ou texte personnalisé obligatoire, texte XML échappé, six positions dont répétition, opacité de 15 à 80 %, taille de 15 à 60 %. Un ancien réglage `NONE` provoque un échec fermé du traitement et doit être réenregistré dans l’éditeur.
 - Moteur Node/Sharp séparé du Worker : décodage, orientation automatique, suppression des métadonnées et quatre variantes WebP filigranées, limitées à 400, 800, 1200 et 1800 pixels sur le grand côté. L’original reste intact.
@@ -24,14 +24,13 @@ Validation locale réalisée le 17 septembre 2026 sur macOS, Node 26.5.0 et pnpm
 - La confidentialité est vérifiée au niveau des routes et du stockage local. La configuration réelle du bucket hébergé, de ses domaines publics et de la passerelle d’authentification reste à vérifier avant production.
 - Le catalogue public reste une démonstration : la publication en base ne remplace pas encore ses données statiques.
 - Les tests HTTP utilisent la connexion locale de développement. L’authentification de production n’a pas été testée.
-- Le validateur d’import ne reconnaît pas encore les variantes WebP simples VP8 et VP8L. Les aperçus produits sont néanmoins des fichiers WebP décodés et vérifiés par les tests.
 
 ## TODO
 
 - Déployer un consommateur Node avec adaptateurs D1/R2 distants et planification, puis vérifier le parcours sur l’hébergement réel.
 - Mesurer les performances et dimensionner les processus pour la charge de production.
 - Superviser les erreurs de maintenance et les limites de stockage sur l’infrastructure distante.
-- Compléter les formats WebP d’import, les quotas, la limitation de débit et le contrôle des ressources du moteur pour une exploitation multi-utilisateur.
+- Compléter les quotas, la limitation de débit et le contrôle des ressources du moteur pour une exploitation multi-utilisateur.
 - Alimenter le catalogue public depuis les images publiées et tester les parcours navigateur desktop/mobile de manière automatisée.
 
 ## FUTURE
@@ -66,3 +65,9 @@ La commande `pnpm images:process` nettoie les objets dérivés non référencés
 Le rendu est isolé dans un sous-processus arrêté après 120 secondes. Les images sont limitées à 60 millions de pixels, le cache Sharp à 32 Mo et le tas JavaScript à 256 Mo, avec un seul thread libvips et des jobs traités séquentiellement par consommateur. Ces réglages ne constituent pas un plafond global de mémoire native pour la machine.
 
 Migration requise : `0003_tan_onslaught.sql`, appliquée par `pnpm db:migrate:local`. Validation : dix tests réussis, lint, build et TypeScript réussis.
+
+## Import WebP
+
+IMPLEMENTED : imports VP8 avec pertes, VP8L sans pertes et VP8X étendus. Treize tests réussis couvrent aussi les fichiers tronqués, tailles de blocs invalides, dimensions incohérentes, mauvais MIME et animations refusées. Les trois variantes réelles sont produites par Sharp puis décodées et transformées par le pipeline. Lint, build et TypeScript réussis.
+
+Référence du format : [spécification du conteneur WebP](https://developers.google.com/speed/webp/docs/riff_container).
