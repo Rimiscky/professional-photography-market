@@ -8,6 +8,8 @@ import { renderProtectedPreviews } from "../modules/images/render-preview";
 import { publishOwnedImage, retryOwnedImage, saveOwnedMetadata } from "../modules/images/manage";
 import { imageMetadataInput } from "../modules/images/metadata-schema";
 
+import { protectedPreview } from "../modules/images/preview";
+
 const metadata = imageMetadataInput.parse({title:"Test photo",description:"Description",altText:"Une photographie",category:"Nature",copyrightOwner:"Artiste",watermarkMode:"CUSTOM",watermarkText:"Artiste"});
 test("D1/R2 pipeline: claims, privacy, metadata locks, publication, regeneration, failure and retry", async () => {
   const proxy = await getPlatformProxy<ImageBindings>({configPath:"wrangler.images.json",persist:false});
@@ -41,12 +43,21 @@ test("D1/R2 pipeline: claims, privacy, metadata locks, publication, regeneration
     release();
     assert.deepEqual(await running,{imageId:"i",status:"READY"});
     assert.deepEqual(Buffer.from(await (await ASSETS.get("originals/p/i/original.jpg"))!.arrayBuffer()),original);
+    assert.equal((await protectedPreview(proxy.env,"i",null)).status,404);
+    assert.equal((await protectedPreview(proxy.env,"i","other")).status,404);
+    const preview=await protectedPreview(proxy.env,"i","owner");
+    assert.equal(preview.status,200);
+    assert.equal(preview.headers.get("content-type"),"image/webp");
+    assert.equal(preview.headers.get("cache-control"),"private, no-store");
+    assert.equal((await sharp(Buffer.from(await preview.arrayBuffer())).metadata()).format,"webp");
+    assert.equal((await protectedPreview(proxy.env,"originals/p/i/original.jpg","owner")).status,404);
     assert.equal(await publishOwnedImage(DB,"i","other"),false);
     // A plain LARGE asset is not sufficient for publication.
     await DB.prepare("UPDATE image_assets SET kind='LARGE' WHERE kind='WATERMARKED'").run();
     assert.equal(await publishOwnedImage(DB,"i","owner"),false);
     await DB.prepare("UPDATE image_assets SET kind='WATERMARKED' WHERE kind='LARGE'").run();
     assert.equal(await publishOwnedImage(DB,"i","owner"),true);
+    assert.equal((await protectedPreview(proxy.env,"i",null)).status,200);
     assert.equal(await publishOwnedImage(DB,"i","owner"),false);
     assert.equal((await DB.prepare("SELECT count(*) AS n FROM audit_logs").first<{n:number}>())?.n,1);
     assert.equal(await saveOwnedMetadata(DB,"i","owner",metadata),false);
@@ -54,6 +65,8 @@ test("D1/R2 pipeline: claims, privacy, metadata locks, publication, regeneration
     assert.equal(await saveOwnedMetadata(DB,"i","owner",{...metadata,watermarkText:"Nouveau"}),true);
     assert.equal((await DB.prepare("SELECT count(*) AS n FROM image_assets WHERE kind!='ORIGINAL'").first<{n:number}>())?.n,0);
     assert.equal(await publishOwnedImage(DB,"i","owner"),false);
+    assert.equal((await protectedPreview(proxy.env,"i",null)).status,404);
+    assert.equal((await protectedPreview(proxy.env,"i","owner")).status,404);
     assert.deepEqual(await processNextImage(proxy.env,async()=>{throw new Error("test decode failure");}),{imageId:"i",status:"ERROR"});
     assert.equal(await retryOwnedImage(DB,"i","other"),false);
     assert.equal(await retryOwnedImage(DB,"i","owner"),true);

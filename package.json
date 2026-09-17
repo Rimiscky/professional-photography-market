@@ -14,7 +14,8 @@
     "db:generate": "drizzle-kit generate",
     "test": "tsx --test tests/*.test.ts",
     "images:process": "tsx scripts/process-images.ts",
-    "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.images.json"
+    "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.images.json",
+    "test:import": "tsx tests/import-http.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
