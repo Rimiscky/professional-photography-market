@@ -59,6 +59,7 @@ export default defineConfig(async () => {
       vinext(),
       sites({ mockAuth: !managedLinux }),
       cloudflare({
+        persistState: { path: process.env.PHOTO_LOCAL_STATE ?? ".wrangler/state" },
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
         inspectorPort: false,
         config: localBindingConfig,

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { readOwnedImageState } from "../modules/images/image-state";
 import { imageFixture } from "./support/images";
 import { processNextImage } from "../modules/images/processing";
 import { renderProtectedPreviews } from "../modules/images/render-preview";
@@ -80,5 +81,17 @@ test("isolated renderer produces previews and terminates at its deadline",async(
     const settings=watermarkInput.parse({watermarkMode:"PLATFORM"});
     assert.equal((await renderWithLimits(original,settings)).length,4);
     await assert.rejects(renderWithLimits(original,settings,1),/RENDER_TIMEOUT/);
+  }finally{await proxy.dispose();}
+});
+
+test("status polling is owner-only and never returns object keys or diagnostics",async()=>{
+  const proxy=await imageFixture();
+  try {
+    assert.equal(await readOwnedImageState(proxy.env.DB,"i","other"),null);
+    const state=await readOwnedImageState(proxy.env.DB,"i","owner");
+    assert.equal(state?.status,"PROCESSING");assert.equal(state?.previewVersion,null);
+    assert.deepEqual(Object.keys(state!).sort(),["previewVersion","retryable","status","updatedAt"]);
+    await processNextImage(proxy.env,renderProtectedPreviews);
+    assert.ok((await readOwnedImageState(proxy.env.DB,"i","owner"))?.previewVersion);
   }finally{await proxy.dispose();}
 });

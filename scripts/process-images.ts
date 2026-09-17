@@ -4,7 +4,7 @@ import { renderWithLimits } from "../modules/images/render-isolated";
 import { cleanupDerivedObjects, recoverExpiredJobs } from "../modules/images/processing-maintenance";
 
 // Intentionally local. Production adapters and scheduling require deployment configuration.
-const proxy = await getPlatformProxy<ImageBindings>({ configPath: "wrangler.images.json", persist: { path: ".wrangler/state/v3" } });
+const proxy = await getPlatformProxy<ImageBindings>({ configPath: "wrangler.images.json", persist: { path: `${process.env.PHOTO_LOCAL_STATE ?? ".wrangler/state"}/v3` } });
 try {
   await recoverExpiredJobs(proxy.env.DB);
   let cursor: string | undefined;

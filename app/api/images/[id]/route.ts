@@ -3,6 +3,8 @@ import { getChatGPTUser } from "../../../chatgpt-auth";
 import { imageMetadataInput } from "../../../../modules/images/metadata-schema";
 import { publishOwnedImage, retryOwnedImage, saveOwnedMetadata, unpublishOwnedImage } from "../../../../modules/images/manage";
 
+import { readOwnedImageState } from "../../../../modules/images/image-state";
+
 type Context = { params: Promise<{ id: string }> };
 export async function PATCH(request: Request, { params }: Context) {
   const user = await getChatGPTUser();
@@ -36,4 +38,16 @@ export async function POST(request: Request, { params }: Context) {
     console.error("image_action_failed", { imageId: id, error });
     return Response.json({ error: "Action momentanément indisponible." }, { status: 500 });
   }
+}
+
+export async function GET(_request:Request,{params}:Context){
+  const headers={"Cache-Control":"private, no-store"};
+  const user=await getChatGPTUser();
+  if(!user)return Response.json({error:"Vous devez être connecté."},{status:401,headers});
+  if(!env.DB)return Response.json({error:"Service indisponible."},{status:503,headers});
+  const {id}=await params;
+  try {
+    const state=await readOwnedImageState(env.DB,id,user.userId);
+    return state?Response.json(state,{headers}):Response.json({error:"Photographie introuvable."},{status:404,headers});
+  }catch{return Response.json({error:"Suivi momentanément indisponible."},{status:503,headers});}
 }

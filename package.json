@@ -15,7 +15,9 @@
     "test": "tsx --test tests/*.test.ts",
     "images:process": "tsx scripts/process-images.ts",
     "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.images.json",
-    "test:import": "tsx tests/import-http.ts"
+    "test:import": "tsx tests/import-http.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:server": "tsx tests/e2e-server.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -46,6 +48,7 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
     "@cloudflare/workers-types": "4.20260515.1",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",

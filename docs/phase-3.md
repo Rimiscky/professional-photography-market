@@ -16,7 +16,7 @@ Validation locale réalisée le 17 septembre 2026 sur macOS, Node 26.5.0 et pnpm
 - Enregistrement des métadonnées et du filigrane : invalidation immédiate des anciens actifs en base, retour à `PROCESSING` et remise en file atomiques. Même une modification de titre déclenche actuellement une régénération.
 - Publication conditionnelle et atomique : propriétaire, état autorisé, métadonnées obligatoires, confirmation des droits, original privé, job réussi et actif `WATERMARKED` WebP requis. Un actif `LARGE` seul ne suffit pas. Journal d’audit créé uniquement si la publication réussit.
 - `GET /api/images/{id}/preview` sélectionne uniquement le dérivé protégé. Aperçu réservé au propriétaire avant publication, accessible sans session après publication. Aucun paramètre de clé objet n’est accepté. Réponse `image/webp`, `nosniff`, `private, no-store`.
-- L’éditeur affiche l’aperçu, l’état courant après une action, les réglages, les erreurs réseau et un bouton de réessai. La liste et l’éditeur doivent être actualisés après traitement.
+- L’éditeur affiche l’aperçu, l’état courant après une action, les réglages, les erreurs réseau et un bouton de réessai. La liste et l’éditeur suivent automatiquement les traitements, sans rechargement manuel.
 
 ## PARTIAL
 
@@ -31,7 +31,7 @@ Validation locale réalisée le 17 septembre 2026 sur macOS, Node 26.5.0 et pnpm
 - Mesurer les performances et dimensionner les processus pour la charge de production.
 - Superviser les erreurs de maintenance et les limites de stockage sur l’infrastructure distante.
 - Compléter les quotas, la limitation de débit et le contrôle des ressources du moteur pour une exploitation multi-utilisateur.
-- Alimenter le catalogue public depuis les images publiées et tester les parcours navigateur desktop/mobile de manière automatisée.
+- Alimenter le catalogue public depuis les images publiées et compléter les parcours du catalogue public.
 
 ## FUTURE
 
@@ -75,3 +75,9 @@ Référence du format : [spécification du conteneur WebP](https://developers.go
 ## Dépublication
 
 IMPLEMENTED : action propriétaire `unpublish`, transition atomique vers `UNPUBLISHED` et journal d’audit. L’aperçu public devient inaccessible immédiatement ; le propriétaire conserve son aperçu et peut enregistrer de nouvelles métadonnées, ce qui déclenche une régénération. Les tests vérifient le refus pour un autre compte et pour une image déjà dépubliée.
+
+## Studio et tests navigateur
+
+IMPLEMENTED : suivi de l’état toutes les trois secondes lorsque l’onglet est visible, remplacement automatique de l’aperçu après traitement, suivi automatique de la liste, protection des modifications non enregistrées et bouton de dépublication. Le suivi expose uniquement l’état au propriétaire, sans clés objets ni diagnostics internes. Les champs interactifs attendent l’hydratation du formulaire pour éviter la perte d’une sélection de fichier précoce.
+
+Validation : quatorze tests métier et d’intégration, deux parcours Playwright réussis (Chrome desktop et émulation mobile Pixel 7), sans erreur JavaScript de page ni débordement horizontal dans l’éditeur et la liste. Chaque parcours importe un WebP VP8L, configure le filigrane, vérifie la mise à jour automatique, publie, dépublie et régénère. Les tests navigateur utilisent un dossier `.wrangler/e2e/<identifiant>` propre à chaque exécution, indépendant des données locales habituelles.
