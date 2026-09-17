@@ -1,12 +1,39 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { env } from "cloudflare:workers";
 import { getChatGPTUser } from "../../../chatgpt-auth";
-import { getDb } from "../../../../db";
-import { auditLogs, imageAssets, images, photographerProfiles, watermarkSettings } from "../../../../db/schema";
 import { imageMetadataInput } from "../../../../modules/images/metadata-schema";
-import { assertImageTransition, type ImageStatus } from "../../../../modules/images/status-machine";
+import { publishOwnedImage, retryOwnedImage, saveOwnedMetadata } from "../../../../modules/images/manage";
 
-async function ownedImage(id:string,userId:string){const db=getDb();const row=await db.select({image:images}).from(images).innerJoin(photographerProfiles,eq(images.photographerId,photographerProfiles.id)).where(and(eq(images.id,id),eq(photographerProfiles.userId,userId))).limit(1);return row[0]?.image??null}
+type Context = { params: Promise<{ id: string }> };
+export async function PATCH(request: Request, { params }: Context) {
+  const user = await getChatGPTUser();
+  if (!user) return Response.json({ error: "Vous devez être connecté." }, { status: 401 });
+  if (!env.DB) return Response.json({ error: "Service indisponible." }, { status: 503 });
+  const { id } = await params;
+  const parsed = imageMetadataInput.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Informations invalides." }, { status: 400 });
+  try {
+    const saved = await saveOwnedMetadata(env.DB, id, user.userId, parsed.data);
+    if (!saved) return Response.json({ error: "Photographie indisponible ou traitement en cours. Réessayez après le traitement." }, { status: 409 });
+    return Response.json({ ok: true, status: "PROCESSING" });
+  } catch (error) {
+    console.error("image_metadata_update_failed", { imageId: id, error });
+    return Response.json({ error: "Impossible d’enregistrer les informations." }, { status: 500 });
+  }
+}
 
-export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){const user=await getChatGPTUser();if(!user)return Response.json({error:"Vous devez être connecté."},{status:401});const {id}=await params;const current=await ownedImage(id,user.userId);if(!current)return Response.json({error:"Photographie introuvable."},{status:404});if(["PUBLISHED","ARCHIVED"].includes(current.status))return Response.json({error:"Cette photographie ne peut plus être modifiée dans cet état."},{status:409});const parsed=imageMetadataInput.safeParse(await request.json().catch(()=>null));if(!parsed.success)return Response.json({error:parsed.error.issues[0]?.message??"Informations invalides."},{status:400});try{const db=getDb();const now=new Date().toISOString();await db.batch([db.update(images).set({title:parsed.data.title,description:parsed.data.description,altText:parsed.data.altText,category:parsed.data.category,copyrightOwner:parsed.data.copyrightOwner,updatedAt:now}).where(eq(images.id,id)),db.insert(watermarkSettings).values({imageId:id,mode:parsed.data.watermarkMode,text:parsed.data.watermarkText||null,opacityPercent:parsed.data.opacityPercent,sizePercent:parsed.data.sizePercent,position:parsed.data.position,updatedAt:now}).onConflictDoUpdate({target:watermarkSettings.imageId,set:{mode:parsed.data.watermarkMode,text:parsed.data.watermarkText||null,opacityPercent:parsed.data.opacityPercent,sizePercent:parsed.data.sizePercent,position:parsed.data.position,updatedAt:now}})]);return Response.json({ok:true})}catch(error){console.error("image_metadata_update_failed",{imageId:id,userId:user.userId,error});return Response.json({error:"Impossible d’enregistrer les informations."},{status:500})}}
-
-export async function POST(request:Request,{params}:{params:Promise<{id:string}>}){const user=await getChatGPTUser();if(!user)return Response.json({error:"Vous devez être connecté."},{status:401});const body=await request.json().catch(()=>null) as {action?:string}|null;if(body?.action!=="publish")return Response.json({error:"Action inconnue."},{status:400});const {id}=await params;const current=await ownedImage(id,user.userId);if(!current)return Response.json({error:"Photographie introuvable."},{status:404});try{assertImageTransition(current.status as ImageStatus,"PUBLISHED")}catch{return Response.json({error:"La photographie doit être prête avant sa publication."},{status:409})}if(!current.altText||!current.category||!current.description)return Response.json({error:"Complétez la description, le texte alternatif et la catégorie."},{status:409});const db=getDb();const derivatives=await db.select({id:imageAssets.id}).from(imageAssets).where(and(eq(imageAssets.imageId,id),inArray(imageAssets.kind,["LARGE","WATERMARKED"]))).limit(1);if(!derivatives[0])return Response.json({error:"L’aperçu protégé n’est pas encore disponible."},{status:409});const now=new Date().toISOString();await db.batch([db.update(images).set({status:"PUBLISHED",publishedAt:now,updatedAt:now}).where(eq(images.id,id)),db.insert(auditLogs).values({id:crypto.randomUUID(),actorUserId:user.userId,action:"image.published",targetType:"image",targetId:id})]);return Response.json({ok:true,status:"PUBLISHED"})}
+export async function POST(request: Request, { params }: Context) {
+  const user = await getChatGPTUser();
+  if (!user) return Response.json({ error: "Vous devez être connecté." }, { status: 401 });
+  if (!env.DB) return Response.json({ error: "Service indisponible." }, { status: 503 });
+  const body = await request.json().catch(() => null) as { action?: string } | null;
+  if (body?.action !== "publish" && body?.action !== "retry") return Response.json({ error: "Action inconnue." }, { status: 400 });
+  const { id } = await params;
+  try {
+    const ok = body.action === "publish" ? await publishOwnedImage(env.DB, id, user.userId) : await retryOwnedImage(env.DB, id, user.userId);
+    if (!ok) return Response.json({ error: "Action impossible : vérifiez l’état, les métadonnées et l’aperçu protégé." }, { status: 409 });
+    return Response.json({ ok: true, status: body.action === "publish" ? "PUBLISHED" : "PROCESSING" });
+  } catch (error) {
+    console.error("image_action_failed", { imageId: id, error });
+    return Response.json({ error: "Action momentanément indisponible." }, { status: 500 });
+  }
+}
