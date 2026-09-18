@@ -56,9 +56,10 @@ Le moteur local se lance dans un second terminal avec `pnpm images:process`. Gui
 | État | Périmètre |
 | --- | --- |
 | IMPLEMENTED | Filigrane textuel personnalisé, quatre aperçus WebP protégés, original privé, traitement D1/R2 local, transitions et publication atomiques, affichage des aperçus |
-| IMPLEMENTED | Test HTTP d’import complet local, SHA-256 de l’original, contrôle d’accès et retrait EXIF |
+| IMPLEMENTED | Reprise après interruption, nettoyage des dérivés, import VP8/VP8L/VP8X, suivi automatique et dépublication |
+| IMPLEMENTED | Tests métier, HTTP et navigateur desktop/mobile ; intégrité de l’original et contrôles d’accès |
 | PARTIAL | Moteur lancé manuellement ; catalogue public de démonstration ; confidentialité de l’infrastructure distante non vérifiée |
-| TODO | Consommateur de production, planification, reprise après arrêt brutal, nettoyage des dérivés orphelins, formats WebP VP8/VP8L d’import |
+| TODO | Catalogue réel, quotas et limitation de débit ; consommateur et planification de production |
 | FUTURE | Logo graphique, TIFF, paiements et livraison autorisée des originaux |
 
 Ces résultats ne constituent pas une validation du déploiement de production. Détails et limites : [Phase 3](docs/phase-3.md).
@@ -69,6 +70,7 @@ Ces résultats ne constituent pas une validation du déploiement de production. 
 pnpm build
 pnpm lint
 pnpm test
+pnpm test:e2e
 # Serveur local démarré :
 pnpm test:import
 ```
